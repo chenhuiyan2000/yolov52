@@ -1,0 +1,41 @@
+# path: data0815/
+path: datanew/
+train: # train images (relative to 'path')  16551 images
+  - images/train
+val: # val images (relative to 'path')  4952 images
+  - images/val
+test: # test images (optional)
+
+# Classes
+nc: 31  # number of classes
+names: ['pen',
+ 'phone',
+ 'key',
+ 'teapot',
+ 'ticket',
+ 'Id_card',
+ 'Bank_card',
+ 'Business_card',
+ 'Power_bank',
+ 'airpods',
+ 'wallet',
+ 'bracelet',
+ 'watch',
+ 'Head_rope',
+ 'Rubber_band',
+ 'ring',
+ 'comb',
+ 'other',
+ 'bag',
+ 'laptop',
+ 'Paper_money',
+ 'lipstick',
+ 'Ear_stud',
+ 'coin',
+ 'cigarette',
+ 'passport',
+ 'mouse',
+ 'charger',
+ 'Udisk',
+  'cable',
+ 'suitcase']

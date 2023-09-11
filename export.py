@@ -769,7 +769,7 @@ def run(
     if engine:  # TensorRT required before ONNX
         f[1], _ = export_engine(model, im, file, half, dynamic, simplify, workspace, verbose)
     if onnx or xml:  # OpenVINO requires ONNX
-        f[2], _ = export_onnx(model, im, file, opset, dynamic, simplify)
+        f[2], _ = export_onnx(model, im, file, 11, dynamic, simplify)
     if xml:  # OpenVINO
         f[3], _ = export_openvino(file, metadata, half, int8, data)
     if coreml:  # CoreML

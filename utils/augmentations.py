@@ -77,8 +77,8 @@ def augment_hsv(im, hgain=0.5, sgain=0.5, vgain=0.5):
         lut_val = np.clip(x * r[2], 0, 255).astype(dtype)
 
         im_hsv = cv2.merge((cv2.LUT(hue, lut_hue), cv2.LUT(sat, lut_sat), cv2.LUT(val, lut_val)))
-        cv2.cvtColor(im_hsv, cv2.COLOR_HSV2BGR, dst=im)  # no return needed
-
+    return cv2.cvtColor(im_hsv, cv2.COLOR_HSV2BGR, dst=im)  # no return needed
+    
 
 def hist_equalize(im, clahe=True, bgr=False):
     # Equalize histogram on BGR image 'im' with im.shape(n,m,3) and range 0-255

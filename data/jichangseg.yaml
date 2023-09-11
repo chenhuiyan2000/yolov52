@@ -1,0 +1,44 @@
+
+# Train/val/test sets as 1) dir: path/to/imgs, 2) file: path/to/imgs.txt, or 3) list: [path/to/imgs1, path/to/imgs2, ..]
+path: /fb_isa/workspace_chy/datasets/segdata/datasets  # dataset root dir
+train: train.txt  # train images (relative to 'path') 118287 images
+val: val.txt  # val images (relative to 'path') 5000 images
+
+# Classes
+names:
+  0: 签字笔
+  1: 手机
+  2: 钥匙
+  3: 水杯
+  4: 登机牌
+  5: 身份证
+  6: 银行卡
+  7: 名片
+  8: 充电宝
+  9: 耳机
+  10: 钱包
+  11: 手环
+  12: 手表
+  13: 头绳
+  14: 皮筋
+  15: 戒指
+  16: 梳子
+  17: 其他
+  18: 书包
+  19: 电脑
+  20: 货币
+  21: 口红
+  22: 耳钉
+  23: 硬币
+  24: 香烟
+  25: 护照
+  26: 鼠标
+  27: 充电器
+  28: U盘
+  29: 电缆
+  30: 行李箱
+  31: 帽子
+  32: 打火机
+  33: 矿泉水瓶
+  34: 手
+  

@@ -219,7 +219,7 @@ class ConfusionMatrix:
             print(' '.join(map(str, self.matrix[i])))
 
 
-def bbox_iou(box1, box2, xywh=True, GIoU=False, DIoU=False, CIoU=False, eps=1e-7):
+def bbox_iou(box1, box2, xywh=True, GIoU=False, DIoU=False, CIoU=False, MPDIoU=False,eps=1e-7):
     # Returns Intersection over Union (IoU) of box1(1,4) to box2(n,4)
 
     # Get the coordinates of bounding boxes
@@ -243,20 +243,23 @@ def bbox_iou(box1, box2, xywh=True, GIoU=False, DIoU=False, CIoU=False, eps=1e-7
 
     # IoU
     iou = inter / union
-    if CIoU or DIoU or GIoU:
+    if CIoU or DIoU or GIoU or MPDIoU :
         cw = b1_x2.maximum(b2_x2) - b1_x1.minimum(b2_x1)  # convex (smallest enclosing box) width
         ch = b1_y2.maximum(b2_y2) - b1_y1.minimum(b2_y1)  # convex height
-        if CIoU or DIoU:  # Distance or Complete IoU https://arxiv.org/abs/1911.08287v1
+        if CIoU or DIoU or GIoU :# Distance or Complete IoU https://arxiv.org/abs/1911.08287v1
             c2 = cw ** 2 + ch ** 2 + eps  # convex diagonal squared
             rho2 = ((b2_x1 + b2_x2 - b1_x1 - b1_x2) ** 2 + (b2_y1 + b2_y2 - b1_y1 - b1_y2) ** 2) / 4  # center dist ** 2
-            if CIoU:  # https://github.com/Zzh-tju/DIoU-SSD-pytorch/blob/master/utils/box/box_utils.py#L47
+            if CIoU or DIoU :  # https://github.com/Zzh-tju/DIoU-SSD-pytorch/blob/master/utils/box/box_utils.py#L47
                 v = (4 / math.pi ** 2) * (torch.atan(w2 / h2) - torch.atan(w1 / h1)).pow(2)
-                with torch.no_grad():
-                    alpha = v / (v - iou + (1 + eps))
-                return iou - (rho2 / c2 + v * alpha)  # CIoU
-            return iou - rho2 / c2  # DIoU
-        c_area = cw * ch + eps  # convex area
-        return iou - (c_area - union) / c_area  # GIoU https://arxiv.org/pdf/1902.09630.pdf
+                if CIoU:
+                    with torch.no_grad():
+                        alpha = v / (v - iou + (1 + eps))
+                    return iou - (rho2 / c2 + v * alpha)  # CIoU
+                return iou - rho2 / c2  # DIoU
+            c_area = cw * ch + eps  # convex area
+            return iou - (c_area - union) / c_area  # GIoU https://arxiv.org/pdf/1902.09630.pdf
+        mpdiou = iou - ((b2_x1-b1_x1)**2 + (b2_y1-b1_y1)**2)/2 - ((b2_x2-b1_x2)**2 + (b2_y2-b1_y2)**2)/2
+        return mpdiou
     return iou  # IoU
 
 

@@ -53,7 +53,7 @@ from utils.segment.general import mask_iou, process_mask, process_mask_native, s
 from utils.segment.metrics import Metrics, ap_per_class_box_and_mask
 from utils.segment.plots import plot_images_and_masks
 from utils.torch_utils import de_parallel, select_device, smart_inference_mode
-
+import matplotlib.pyplot as plt
 
 def save_one_txt(predn, save_conf, shape, file):
     # Save one txt result
@@ -89,7 +89,7 @@ def save_one_json(predn, jdict, path, class_map, pred_masks):
             'segmentation': rles[i]})
 
 
-def process_batch(detections, labels, iouv, pred_masks=None, gt_masks=None, overlap=False, masks=False):
+def process_batch(detections, labels, iouv, pred_masks=None, gt_masks=None, overlap=False, masks=False, iou_labels=None):
     """
     Return correct prediction matrix
     Arguments:
@@ -97,6 +97,9 @@ def process_batch(detections, labels, iouv, pred_masks=None, gt_masks=None, over
         labels (array[M, 5]), class, x1, y1, x2, y2
     Returns:
         correct (array[N, 10]), for 10 IoU levels
+        iou_label 是一个列表，其中每个元素都是一个子列表，
+        用于存储与每个标签相关的 IoU 值。每个子列表包含不同标签的 IoU 值。
+        
     """
     if masks:
         if overlap:
@@ -120,11 +123,21 @@ def process_batch(detections, labels, iouv, pred_masks=None, gt_masks=None, over
             if x[0].shape[0] > 1:
                 matches = matches[matches[:, 2].argsort()[::-1]]
                 matches = matches[np.unique(matches[:, 1], return_index=True)[1]]
-                # matches = matches[matches[:, 2].argsort()[::-1]]
                 matches = matches[np.unique(matches[:, 0], return_index=True)[1]]
+            if masks:
+                if i !=0:
+                    continue
+                a = pred_masks[matches[:,1]]
+                b = gt_masks[matches[:,0]]
+                b_label = labels[:,0][matches[:,0]]
+                iou_a_b = torch.logical_and(a,b).sum(dim=(1,2))/torch.logical_or(a,b).sum(dim=(1,2))
+                for idx,label_idx in enumerate(b_label):
+                    iou_labels[int(label_idx)].append(iou_a_b[idx])
             correct[matches[:, 1].astype(int), i] = True
-    return torch.tensor(correct, dtype=torch.bool, device=iouv.device)
-
+    if masks:
+        return torch.tensor(correct, dtype=torch.bool, device=iouv.device), iou_labels
+    else:
+        return torch.tensor(correct, dtype=torch.bool, device=iouv.device)
 
 @smart_inference_mode()
 def run(
@@ -237,6 +250,7 @@ def run(
     metrics = Metrics()
     loss = torch.zeros(4, device=device)
     jdict, stats = [], []
+    iou_labels = [[] for _ in range(25)]
     # callbacks.run('on_val_start')
     pbar = tqdm(dataloader, desc=s, bar_format=TQDM_BAR_FORMAT)  # progress bar
     for batch_i, (im, targets, paths, shapes, masks) in enumerate(pbar):
@@ -274,6 +288,7 @@ def run(
 
         # Metrics
         plot_masks = []  # masks for plotting
+        
         for si, (pred, proto) in enumerate(zip(preds, protos)):
             labels = targets[targets[:, 0] == si, 1:]
             nl, npr = labels.shape[0], pred.shape[0]  # number of labels, predictions
@@ -284,7 +299,7 @@ def run(
 
             if npr == 0:
                 if nl:
-                    stats.append((correct_masks, correct_bboxes, *torch.zeros((2, 0), device=device), labels[:, 0]))
+                    stats.append((correct_masks,correct_bboxes, *torch.zeros((2, 0), device=device), labels[:, 0]))
                     if plots:
                         confusion_matrix.process_batch(detections=None, labels=labels[:, 0])
                 continue
@@ -306,7 +321,7 @@ def run(
                 scale_boxes(im[si].shape[1:], tbox, shape, shapes[si][1])  # native-space labels
                 labelsn = torch.cat((labels[:, 0:1], tbox), 1)  # native-space labels
                 correct_bboxes = process_batch(predn, labelsn, iouv)
-                correct_masks = process_batch(predn, labelsn, iouv, pred_masks, gt_masks, overlap=overlap, masks=True)
+                correct_masks, iou_labels = process_batch(predn, labelsn, iouv, pred_masks, gt_masks, overlap=overlap, masks=True, iou_labels=iou_labels)          
                 if plots:
                     confusion_matrix.process_batch(predn, labelsn)
             stats.append((correct_masks, correct_bboxes, pred[:, 4], pred[:, 5], labels[:, 0]))  # (conf, pcls, tcls)
@@ -336,6 +351,64 @@ def run(
 
     # Compute metrics
     stats = [torch.cat(x, 0).cpu().numpy() for x in zip(*stats)]  # to numpy
+    """ iou_list = []
+    label_to_idx = {
+    "轮挡": 0,
+    "二轮车": 1,
+    "金属杆子": 2,
+    "隔离桩": 3,
+    "栅栏": 4,
+    "垃圾桶": 5,
+    "MPV": 6,
+    "行人": 7,
+    "承重柱": 8,
+    "纸箱": 9,
+    "A字牌": 10,
+    "注水围栏": 11,
+    "三轮车": 12,
+    "乘用小汽车": 13,
+    "路沿": 14,
+    "地锁": 15,
+    "商用车辆（卡车等）": 16,
+    "绿化带": 17,
+    "离地方形障碍物": 18,
+    "管状物": 19,
+    "锥桶": 20,
+    "公共汽车": 21,
+    "匝道杆": 22,
+    "其他车辆": 23,
+    "禁止类文本（地面上的）": 24
+    }
+    for idx, iou_values in enumerate(iou_labels):
+        if len(iou_values) > 0:
+            avg_iou = sum(iou_values) / len(iou_values)
+        else:
+            avg_iou = 0.0  # 或者你认为合适的默认值
+        iou_list.append([idx, avg_iou])
+    print(iou_list)
+    # 提取类别和平均值
+    categories = [item[0] for item in iou_list]
+    avg_iou_values = [item[1] for item in iou_list]
+    avg_iou_values_cpu = [iou.cpu().item() for iou in avg_iou_values]
+    labels = [label for label, idx in label_to_idx.items() if idx in categories]
+    avg_iou_values = [item[1] for item in iou_list]
+    overall_avg_iou = sum(avg_iou_values) / len(avg_iou_values)
+    overall_avg_iou = overall_avg_iou.item()
+    # 创建柱状图
+    fig, ax = plt.subplots()
+    ax.bar(labels, avg_iou_values_cpu)
+    ax.set_xlabel('Label')
+    ax.set_ylabel('IOU')
+    ax.set_title('Average IOU for Each Label')
+    ax.bar('miou', overall_avg_iou, color='r')
+    ax.legend()  # 显示图例
+    ax.set_xticks(labels + ['miou'])  # 设置x轴刻度
+    plt.xticks(rotation=45)
+    save_path = '/fb_isa/workspace_chy/yolov5/runs/train-seg/exp9/iou.png'
+    plt.savefig(save_path)
+    plt.show()
+    print("mIOU:", overall_avg_iou) """
+    
     if len(stats) and stats[0].any():
         results = ap_per_class_box_and_mask(*stats, plot=plots, save_dir=save_dir, names=names)
         metrics.update(results)
@@ -403,15 +476,15 @@ def run(
 
 def parse_opt():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--data', type=str, default=ROOT / 'data/coco128-seg.yaml', help='dataset.yaml path')
-    parser.add_argument('--weights', nargs='+', type=str, default=ROOT / 'yolov5s-seg.pt', help='model path(s)')
-    parser.add_argument('--batch-size', type=int, default=32, help='batch size')
+    parser.add_argument('--data', type=str, default=ROOT / 'data/ceshi-seg.yaml', help='dataset.yaml path')
+    parser.add_argument('--weights', nargs='+', type=str, default=ROOT / 'runs/train-seg/exp9/weights/best.pt', help='model path(s)')
+    parser.add_argument('--batch-size', type=int, default=16, help='batch size')
     parser.add_argument('--imgsz', '--img', '--img-size', type=int, default=640, help='inference size (pixels)')
     parser.add_argument('--conf-thres', type=float, default=0.001, help='confidence threshold')
     parser.add_argument('--iou-thres', type=float, default=0.6, help='NMS IoU threshold')
     parser.add_argument('--max-det', type=int, default=300, help='maximum detections per image')
     parser.add_argument('--task', default='val', help='train, val, test, speed or study')
-    parser.add_argument('--device', default='', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
+    parser.add_argument('--device', default='0', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
     parser.add_argument('--workers', type=int, default=8, help='max dataloader workers (per RANK in DDP mode)')
     parser.add_argument('--single-cls', action='store_true', help='treat as single-class dataset')
     parser.add_argument('--augment', action='store_true', help='augmented inference')

@@ -158,3 +158,34 @@ def masks2segments(masks, strategy='largest'):
             c = np.zeros((0, 2))  # no segments found
         segments.append(c.astype('float32'))
     return segments
+
+def compute_iou(pred_mask, gt_mask):
+    gt_masks = F.interpolate(gt_masks[None], pred_masks.shape[1:], mode='bilinear', align_corners=False)[0]
+    gt_masks = gt_masks.gt_(0.5)
+    gt_masks = gt_masks.view(gt_masks.shape[0], -1)
+    pred_masks = pred_masks.view(pred_masks.shape[0], -1)
+    intersection = np.logical_and(pred_mask, gt_mask)
+    union = np.logical_or(pred_mask, gt_mask)
+    iou = np.sum(intersection) / np.sum(union)
+    return iou
+
+def compute_miou(pred, gt_masks, num_classes):
+    class_ious = np.zeros(num_classes)
+    class_counts = np.zeros(num_classes)
+
+    for class_id in range(num_classes):
+        pred_mask_class = pred[:, 5] == class_id
+        gt_mask_class = gt_masks[:, 5] == class_id
+
+        ious = []
+        for i in range(len(pred)):
+            iou = compute_iou(pred_mask_class[i], gt_mask_class[i])
+            ious.append(iou)
+
+        class_ious[class_id] = np.mean(ious)
+        class_counts[class_id] = len(ious)
+
+    class_mious = class_ious / np.maximum(class_counts, 1)
+    mean_miou = np.mean(class_mious)
+
+    return mean_miou

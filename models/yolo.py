@@ -57,26 +57,24 @@ class Detect(nn.Module):
         z = []  # inference output
         for i in range(self.nl):
             x[i] = self.m[i](x[i])  # conv
-            bs, _, ny, nx = x[i].shape  # x(bs,255,20,20) to x(bs,3,20,20,85)
+            bs, _, ny, nx = x[i].shape  # x(bs,255,20,20) to x(bs,3,20,20,85),nynx特征图长宽
             x[i] = x[i].view(bs, self.na, self.no, ny, nx).permute(0, 1, 3, 4, 2).contiguous()
 
             if not self.training:  # inference
                 if self.dynamic or self.grid[i].shape[2:4] != x[i].shape[2:4]:
                     self.grid[i], self.anchor_grid[i] = self._make_grid(nx, ny, i)
-
                 if isinstance(self, Segment):  # (boxes + masks)
                     xy, wh, conf, mask = x[i].split((2, 2, self.nc + 1, self.no - self.nc - 5), 4)
                     xy = (xy.sigmoid() * 2 + self.grid[i]) * self.stride[i]  # xy
                     wh = (wh.sigmoid() * 2) ** 2 * self.anchor_grid[i]  # wh
-                    y = torch.cat((xy, wh, conf.sigmoid(), mask), 4)
+                    y = torch.cat((xy, wh, conf.sigmoid(), mask), 4)        #(1,3,4,4,62)  (bs, na, ny, nx, no) no-xy, wh, conf, mask
                 else:  # Detect (boxes only)
                     xy, wh, conf = x[i].sigmoid().split((2, 2, self.nc + 1), 4)
                     xy = (xy * 2 + self.grid[i]) * self.stride[i]  # xy
                     wh = (wh * 2) ** 2 * self.anchor_grid[i]  # wh
                     y = torch.cat((xy, wh, conf), 4)
-                z.append(y.view(bs, self.na * nx * ny, self.no))
-
-        return x if self.training else (torch.cat(z, 1), ) if self.export else (torch.cat(z, 1), x)
+                z.append(y.view(bs, self.na * nx * ny, self.no))        #  z为列表 其中每个元素(bs, na * nx * ny, no)
+        return x if self.training else (torch.cat(z, 1), ) if self.export else (torch.cat(z, 1), x)     #return (torch.cat(z, 1), x) 返回一个元组，其中第一个元素(bs, (na * nx * ny) * 数量, no)，包含了处理后的预测结果，而第二个元素是模型的原始输出。
 
     def _make_grid(self, nx=20, ny=20, i=0, torch_1_10=check_version(torch.__version__, '1.10.0')):
         d = self.anchors[i].device
@@ -88,7 +86,7 @@ class Detect(nn.Module):
         anchor_grid = (self.anchors[i] * self.stride[i]).view((1, self.na, 1, 1, 2)).expand(shape)
         return grid, anchor_grid
 
-
+ 
 class Segment(Detect):
     # YOLOv5 Segment head for segmentation models
     def __init__(self, nc=80, anchors=(), nm=32, npr=256, ch=(), inplace=True):
@@ -102,8 +100,8 @@ class Segment(Detect):
 
     def forward(self, x):
         p = self.proto(x[0])
-        x = self.detect(self, x)
-        return (x, p) if self.training else (x[0], p) if self.export else (x[0], p, x[1])
+        x = self.detect(self, x)       # x.shape=((bs, (na * nx * ny) * 数量, no),x)
+        return (x, p) if self.training else (x[0], p) if self.export else (x[0], p, x[1])  
 
 
 class BaseModel(nn.Module):
@@ -148,7 +146,7 @@ class BaseModel(nn.Module):
         return self
 
     def info(self, verbose=False, img_size=640):  # print model information
-        model_info(self, verbose, img_size)
+        return model_info(self, verbose, img_size)
 
     def _apply(self, fn):
         # Apply to(), cpu(), cuda(), half() to model tensors that are not parameters or registered buffers
@@ -316,7 +314,7 @@ def parse_model(d, ch):  # model_dict, input_channels(3)
         n = n_ = max(round(n * gd), 1) if n > 1 else n  # depth gain
         if m in {
                 Conv, GhostConv, Bottleneck, GhostBottleneck, SPP, SPPF, DWConv, MixConv2d, Focus, CrossConv,
-                BottleneckCSP, C3, C3TR, C3SPP, C3Ghost, nn.ConvTranspose2d, DWConvTranspose2d, C3x}:
+                BottleneckCSP, C3, C3TR, C3SPP, C3Ghost, nn.ConvTranspose2d, DWConvTranspose2d, C3x, SE ,SEAM }:
             c1, c2 = ch[f], args[0]
             if c2 != no:  # if not output
                 c2 = make_divisible(c2 * gw, 8)
@@ -358,7 +356,7 @@ def parse_model(d, ch):  # model_dict, input_channels(3)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--cfg', type=str, default='yolov5s.yaml', help='model.yaml')
+    parser.add_argument('--cfg', type=str, default='yolov5/models/segment/yolov5x-seg.yaml', help='model.yaml')
     parser.add_argument('--batch-size', type=int, default=1, help='total batch size for all GPUs')
     parser.add_argument('--device', default='', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
     parser.add_argument('--profile', action='store_true', help='profile model speed')

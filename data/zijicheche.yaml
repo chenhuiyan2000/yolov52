@@ -1,0 +1,34 @@
+
+# Train/val/test sets as 1) dir: path/to/imgs, 2) file: path/to/imgs.txt, or 3) list: [path/to/imgs1, path/to/imgs2, ..]
+path: ../datasets/ZIJIidata  # dataset root dir
+train: train.txt  # train images (relative to 'path') 118287 images
+val: val.txt  # val images (relative to 'path') 5000 images
+
+nc: 25
+# Classes
+names:
+  0: 轮挡
+  1: 二轮车
+  2: 金属杆子
+  3: 隔离桩
+  4: 栅栏
+  5: 垃圾桶
+  6: MPV
+  7: 行人
+  8: 承重柱
+  9: 纸箱
+  10: A字牌
+  11: 注水围栏
+  12: 三轮车
+  13: 乘用小汽车
+  14: 路沿
+  15: 地锁
+  16: 商用车辆（卡车等）
+  17: 绿化带
+  18: 离地方形障碍物
+  19: 管状物
+  20: 锥桶
+  21: 公共汽车
+  22: 匝道杆
+  23: 其他车辆
+  24: 禁止类文本（地面上的）

@@ -27,7 +27,8 @@ def ap_per_class_box_and_mask(
     """
     Args:
         tp_b: tp of boxes.
-        tp_m: tp of masks.
+        tp_m: t
+        p of masks.
         other arguments see `func: ap_per_class`.
     """
     results_boxes = ap_per_class(tp_b,
@@ -119,6 +120,7 @@ class Metric:
             float.
         """
         return self.all_ap.mean() if len(self.all_ap) else 0.0
+ 
 
     def mean_results(self):
         """Mean of results, return mp, mr, map50, map"""
